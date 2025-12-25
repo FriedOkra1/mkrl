@@ -1,0 +1,248 @@
+Product Requirements Document PRD for mkrl URL Shortener
+
+1. Overview
+
+* mkrl is a tiny URL service
+* It converts long URLs into short URLs
+* Short URLs redirect users to the original URL using HTTP 301
+* The goal is **speed**, **correctness**, and **no duplicate short codes**
+
+**2. Goals**
+
+* Shorten any valid long URL
+* Redirect fast and reliably
+* Ensure no short URL is repeated
+* Handle high read traffic efficiently
+* Keep API simple and predictable
+
+**3. Non Goals**
+
+* No user accounts in v1
+* No custom aliases in v1
+* No analytics dashboard in v1
+
+**4. URL Format**
+
+* Base domain example mkrl.io
+* Short URL format
+* mkrl.io/{code}
+* code is **7 characters**
+* Characters use **Base62**
+* Base62 set
+* a to z
+* A to Z
+* 0 to 9
+* Total space is (62^7) which is large enough
+
+**5. API Design**
+
+**POST /shorten**
+
+* Input
+* JSON body
+* long_url string required
+
+Example request
+
+* long_url [https://example.com/some/very/long/path](https://example.com/some/very/long/path)
+
+Example response
+
+* short_url mkrl.io/aZ3f91Q
+
+Behavior
+
+* Validate URL format
+* Generate unique Base62 code
+* Store mapping in database
+* Cache mapping in Redis
+* Return short URL
+
+**GET /{code}**
+
+* Input
+* code from path
+
+Behavior
+
+* Check Redis cache first
+* If found return HTTP 301 redirect
+* If not found
+
+  * Query database
+  * If found
+
+    * Store in Redis
+    * Return HTTP 301 redirect
+  * If not found
+
+    * Return 404
+
+**6. Uniqueness Strategy**
+
+To ensure nothing is repeated
+
+* Use a global auto increment ID in database
+* Convert ID to Base62
+* Pad to 7 characters if needed
+
+Why this works
+
+* Auto increment guarantees uniqueness
+* Base62 encoding is deterministic
+* No collision checks needed
+* No retries needed
+
+**7. Exact Base62 Encoding Logic**
+
+Base62 alphabet
+
+* abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789
+
+Encoding steps
+
+* Take the auto increment ID from database
+* Repeatedly divide the ID by 62
+* For each remainder
+
+  * Map remainder to Base62 character
+* Build string from remainders in reverse order
+* If length is less than 7
+
+  * Left pad with character a
+* Final output is exactly 7 characters
+
+Example
+
+* ID 125
+* 125 mod 62 = 1
+* 2 mod 62 = 2
+* Encoded string before padding = bc
+* After padding = aaaaabc
+
+**8. Database Design**
+
+Table urls
+
+* id bigint primary key auto increment
+* short_code varchar(7) not null unique
+* long_url text not null
+* created_at timestamp default current_timestamp
+
+Indexes
+
+* primary key on id
+* unique index on short_code
+
+**9. Database Schema SQL**
+
+```sql
+CREATE TABLE urls (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  short_code VARCHAR(7) NOT NULL UNIQUE,
+  long_url TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX idx_short_code ON urls(short_code);
+```
+
+**10. Redis Design**
+
+Purpose
+
+* Speed up redirects
+* Reduce database reads
+
+Key format
+
+* mkrl:{short_code}
+
+Value
+
+* long_url
+
+TTL
+
+* Optional
+* Example 24 hours
+* Popular URLs stay hot naturally
+
+**11. Redirect Logic Flow**
+
+* User hits mkrl.io/aZ3f91Q
+* Backend receives GET request
+* Check Redis
+* If hit
+
+  * Return 301 redirect immediately
+* If miss
+
+  * Query database
+  * If found
+
+    * Cache in Redis
+    * Return 301
+  * Else
+
+    * Return 404
+
+**12. HTTP Status Codes**
+
+* 201 for successful shorten
+* 301 for redirect
+* 400 for invalid URL
+* 404 for unknown short code
+* 500 for internal error
+
+**13. Performance Requirements**
+
+* Redirect latency under 50 ms for cache hit
+* Redirect latency under 150 ms for cache miss
+* System must handle read heavy traffic
+* Writes are much less frequent than reads
+
+**14. Security and Validation**
+
+* Validate URL scheme http or https only
+* Block javascript and data URLs
+* Rate limit POST /shorten
+* Sanitize input to avoid injection
+
+**15. Scalability Plan**
+
+* Stateless API servers
+* Redis shared across instances
+* Database can be sharded by ID later
+* Base62 ID approach scales horizontally
+
+**16. System Diagram Description**
+
+High level flow
+
+* Client sends POST /shorten
+* API server validates URL
+* API server writes to database
+* Database returns auto increment ID
+* API server encodes ID to Base62
+* API server updates database with short_code
+* API server writes short_code and long_url to Redis
+* Client receives short URL
+
+Redirect flow
+
+* Client requests GET /{code}
+* API server checks Redis
+* If hit return 301 redirect
+* If miss query database
+* Cache result in Redis
+* Return 301 redirect
+
+Text diagram
+
+Client
+→ API Server
+→ Redis cache
+→ Database
+
+Redirect path prioritizes Redis before Database

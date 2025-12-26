@@ -7,7 +7,7 @@ from .redis import get_redis_client
 from .base62 import encode
 import time
 
-app = FastAPI(root_path="/api")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -20,11 +20,11 @@ app.add_middleware(
 class ShortenRequest(BaseModel):
     long_url: HttpUrl
 
-@app.get("/")
+@app.get("/api")
 def read_root():
     return {"message": "Welcome to mkrl TinyURL"}
 
-@app.post("/shorten")
+@app.post("/api/shorten")
 async def shorten(request: ShortenRequest):
     long_url_str = str(request.long_url)
     

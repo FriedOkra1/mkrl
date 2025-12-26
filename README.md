@@ -1,4 +1,4 @@
-# mkrl TinyURL Clone
+# mkrl 
 
 - clone of TinyURL
 - mkrl stands for an amalgamation of mk and URL

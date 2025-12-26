@@ -11,7 +11,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # In production, restrict this
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,20 +32,26 @@ async def shorten(request: ShortenRequest):
     redis_client = get_redis_client()
     
     try:
+        # Insert to get ID
+        # Using RETURNING id
         row = await conn.fetchrow(
             "INSERT INTO urls (long_url) VALUES ($1) RETURNING id",
             long_url_str
         )
         url_id = row['id']
         
+        # Encode
         short_code = encode(url_id)
         
+        # Update with short_code
         await conn.execute(
             "UPDATE urls SET short_code = $1 WHERE id = $2",
             short_code, url_id
         )
         
-        await redis_client.set(f"mkrl:{short_code}", long_url_str, ex=86400)
+        # Cache in Redis
+        # Key: mkrl:{short_code}
+        await redis_client.set(f"mkrl:{short_code}", long_url_str, ex=86400) # 24h TTL
         
         return {"short_code": short_code}
         
@@ -57,6 +63,7 @@ async def shorten(request: ShortenRequest):
 async def redirect_to_url(code: str):
     redis_client = get_redis_client()
     
+    # Check Redis
     cached_url = await redis_client.get(f"mkrl:{code}")
     if cached_url:
         await redis_client.aclose()
@@ -64,6 +71,7 @@ async def redirect_to_url(code: str):
     
     conn = await get_db_connection()
     try:
+        # Check DB
         row = await conn.fetchrow(
             "SELECT long_url FROM urls WHERE short_code = $1",
             code
@@ -71,6 +79,7 @@ async def redirect_to_url(code: str):
         
         if row:
             long_url = row['long_url']
+            # Cache in Redis
             await redis_client.set(f"mkrl:{code}", long_url, ex=86400)
             await redis_client.aclose()
             return RedirectResponse(url=long_url, status_code=301)

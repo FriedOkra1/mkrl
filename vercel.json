@@ -1,7 +1,7 @@
 {
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/backend/api/index.py" },
+    { "source": "/([a-zA-Z0-9]{7})", "destination": "/backend/api/index.py" },
     { "source": "/(.*)", "destination": "/frontend/dist/$1" }
   ]
 }
-

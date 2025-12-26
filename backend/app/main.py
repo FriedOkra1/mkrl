@@ -7,7 +7,7 @@ from .redis import get_redis_client
 from .base62 import encode
 import time
 
-app = FastAPI()
+app = FastAPI(root_path="/api")
 
 app.add_middleware(
     CORSMiddleware,

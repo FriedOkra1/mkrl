@@ -8,8 +8,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Default to local backend if env var is not set
-  const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+  // Use relative path '/api' in production (Vercel rewrites handle this)
+  // Use http://localhost:8000 in development
+  const API_BASE_URL = import.meta.env.PROD 
+    ? '/api' 
+    : (import.meta.env.VITE_API_URL || 'http://localhost:8000');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

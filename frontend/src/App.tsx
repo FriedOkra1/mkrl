@@ -16,8 +16,6 @@ export default function App() {
   const [result, setResult] = useState<ShortenedUrl | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Use relative path '/api' in production (Vercel rewrites handle this)
-  // Use http://localhost:8000 in development
   const API_BASE_URL = import.meta.env.PROD 
     ? '/api' 
     : (import.meta.env.VITE_API_URL || 'http://localhost:8000/api');
@@ -30,7 +28,6 @@ export default function App() {
     }
   }, [isDark]);
 
-  // Validate URL
   const isValidUrl = (urlString: string) => {
     try {
       const url = new URL(urlString);
@@ -40,14 +37,12 @@ export default function App() {
     }
   };
 
-  // Handle URL shortening
   const handleShorten = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setResult(null);
     setCopied(false);
 
-    // Validate and format URL
     if (!url.trim()) {
       setError("Please enter a URL");
       return;
@@ -71,11 +66,9 @@ export default function App() {
       });
       
       const shortCode = response.data.short_code;
-      // Construct the full short URL
       const baseUrl = API_BASE_URL.replace('/api', '');
       let fullShortUrl = `${baseUrl}/${shortCode}`;
 
-      // If fullShortUrl starts with /, it's relative. Prepend origin for display/copy.
       if (fullShortUrl.startsWith('/')) {
          fullShortUrl = `${window.location.origin}${fullShortUrl}`;
       }
@@ -95,7 +88,6 @@ export default function App() {
     }
   };
 
-  // Copy to clipboard
   const handleCopy = async () => {
     if (result) {
       try {
@@ -116,7 +108,6 @@ export default function App() {
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         
-        {/* Theme Toggle - Top Right */}
         <div className="flex justify-end mb-8">
           <button
             onClick={toggleTheme}
@@ -127,7 +118,6 @@ export default function App() {
           </button>
         </div>
 
-        {/* Header */}
         <div className="text-center mb-12">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Link2 className="w-12 h-12" />
@@ -140,11 +130,9 @@ export default function App() {
           </p>
         </div>
 
-        {/* Main Card */}
         <div className="bg-background border-4 border-foreground p-8">
           <div className="w-16 h-1 bg-blue-600 mb-8"></div>
           
-          {/* Form */}
           <form onSubmit={handleShorten} className="space-y-6">
             <div>
               <label htmlFor="url-input" className="block mb-3 text-lg">
@@ -170,14 +158,12 @@ export default function App() {
             </button>
           </form>
 
-          {/* Error State */}
           {error && (
             <div className="mt-6 p-4 border-2 border-red-600 bg-red-50 dark:bg-red-950 text-red-600">
               {error}
             </div>
           )}
 
-          {/* Success/Result Section */}
           {result && (
             <div className="mt-8 pt-8 border-t-2 border-foreground">
               <p className="mb-4 text-muted-foreground">
@@ -219,7 +205,6 @@ export default function App() {
           )}
         </div>
 
-        {/* Footer Info */}
         <div className="mt-8 text-center text-sm text-muted-foreground">
           <p>The name mkrl stems from the amalgamation of two words: mk, an abbreviation of my name and URL</p>
         </div>
